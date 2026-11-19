@@ -1,9 +1,68 @@
+import re
+
 from osdagbridge.core.utils.common import (
     KEY_MP_GD_MEMBER_ID,
     KEY_MP_GD_SELECT_GIRDER,
     KEY_MP_GIRDER_DEPTH,
     KEY_TS_NO_OF_GIRDERS
 )
+
+
+def repeat_longtable_headers(document_tex):
+    """Add continuation headers to longtables with a conventional bold header row.
+
+    Chapter builders produce the final LaTeX as strings, including dynamic rows.
+    Running this on the assembled document lets the same rule cover both static
+    and dynamically-sized tables without duplicating their header definitions.
+    Tables that already define longtable head sections are left untouched.
+    """
+    table_pattern = re.compile(r"\\begin\{longtable\}.*?\\end\{longtable\}", re.DOTALL)
+
+    def _add_head(match):
+        table = match.group(0)
+        if r"\endfirsthead" in table or r"\endhead" in table:
+            return table
+
+        lines = table.splitlines(keepends=True)
+        caption_index = next(
+            (i for i, line in enumerate(lines) if r"\caption" in line), None
+        )
+        if caption_index is None:
+            return table
+
+        # Most report tables use a single bold header row. Search only before
+        # the first body row, and require the row terminator to avoid matching
+        # bold text in a caption or an explanatory line.
+        header_index = next(
+            (
+                i for i in range(caption_index + 1, len(lines))
+                if r"\textbf" in lines[i]
+                and re.search(r"\\\\(?:\[[^]]+\])?\s*$", lines[i])
+            ),
+            None,
+        )
+        if header_index is None:
+            return table
+
+        separator_index = next(
+            (i for i in range(header_index + 1, len(lines)) if r"\hline" in lines[i]),
+            None,
+        )
+        if separator_index is None:
+            return table
+
+        header_row = lines[header_index]
+        repeated_head = (
+            r"\endfirsthead" + "\n"
+            + r"\hline" + "\n"
+            + header_row
+            + r"\hline" + "\n"
+            + r"\endhead" + "\n"
+        )
+        lines.insert(separator_index + 1, repeated_head)
+        return "".join(lines)
+
+    return table_pattern.sub(_add_head, document_tex)
 
 
 def _tex(value):

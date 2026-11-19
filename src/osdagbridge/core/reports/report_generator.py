@@ -118,7 +118,7 @@ from osdagbridge.core.utils.common import (
     KEY_TL_TEMP_RISE
 )
 
-from osdagbridge.core.reports.report_utils import _tex
+from osdagbridge.core.reports.report_utils import _tex, repeat_longtable_headers
 from .executive_summary import executive_summary
 from .chap1 import ch1_project_info
 from .chap2 import ch2_input_parameters
@@ -940,12 +940,7 @@ def generate_report(payload, request):
             doc_parts.append(r"\end{document}")
 
             full_tex = "\n".join(doc_parts)
-
-
-            # NOTE: longtable header repetition is handled per-table in each
-            # chapter file (e.g. \endfirsthead / \endhead).  No automatic
-            # post-processing is applied here to avoid mis-ordering captions
-            # and column headings.
+            full_tex = repeat_longtable_headers(full_tex)
 
             tmp_tex = os.path.join(tmp_dir, request.file_stem + '.tex')
             tmp_pdf = os.path.join(tmp_dir, request.file_stem + '.pdf')
