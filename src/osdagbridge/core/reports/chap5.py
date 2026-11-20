@@ -1065,32 +1065,56 @@ Fatigue Shear Resistance, $Q_r$ & IRC 22 Table 8 ($\phi d$, $N_{sc}$) & """
     ]
     t522_content = "\n".join(_t522)
 
-    # Section 5.5 charts use the same stored URs as Table 5.22.
+    # Section 5.5 chart reads the computed URs from each element's design result
+    # payload. Each bar represents the governing (maximum) check for that group.
     def _numeric_ur(value):
+        if isinstance(value, (int, float)):
+            return float(value)
         try:
-            return float(str(value).replace(r"\textcolor{red}{", "").replace("}", ""))
+            text = str(value).strip()
+            if text.startswith(r"\textcolor{red}{"):
+                text = text[len(r"\textcolor{red}{"):]
+            return float(text.rstrip("}"))
         except (TypeError, ValueError):
             return None
 
-    _girder_chart = _numeric_ur(_dcr_row({1, 2, 5, 13, 14, 11, 8, 9})[3])
-    _deck_chart_values = []
-    for _d, _c, _oh in (
-        (KEY_DD_M_ULS_SAG, KEY_DD_MU_BOT, False),
-        (KEY_DD_M_ULS_HOG, KEY_DD_MU_TOP, False),
-        (KEY_DD_M_ULS_OH, KEY_DD_MU_OH, True),
-        (KEY_DD_PUNCH_VED, KEY_DD_VRD_C_MPA, False),
-        (KEY_DD_SHEAR_VED, KEY_DD_SHEAR_VRDC, False),
-    ):
-        _deck_chart_values.append(_numeric_ur(_deck_row(_d, _c, "", is_oh=_oh)[3]))
-    _deck_chart_values = [v for v in _deck_chart_values if v is not None]
+    _girder_chart_values = [
+        value for g, gd in _pg_522.items()
+        if not str(g).startswith("EB")
+        if (value := _numeric_ur(gd.get("max_dcr"))) is not None
+    ]
+    _girder_chart = max(_girder_chart_values) if _girder_chart_values else None
+
+    # The deck design result already contains the demand/capacity URs for its
+    # flexure, punching, shear, serviceability and overhang checks.
+    _deck_chart_values = [
+        value for key, raw in _dd_522.items()
+        if str(key).startswith("ur_")
+        if (value := _numeric_ur(raw)) is not None
+    ]
     _deck_chart = max(_deck_chart_values) if _deck_chart_values else None
     _cb_chart_values = [_numeric_ur(_cb_row(_kind)[3]) for _kind in ("compression", "tension")]
     _cb_chart_values = [v for v in _cb_chart_values if v is not None]
     _cb_chart = max(_cb_chart_values) if _cb_chart_values else None
-    _ed_chart = max(
-        (_numeric_ur(_cb_row(_kind)[3]) for _kind in ("compression", "tension")),
-        default=None,
-    ) if _ed_is_cb else None
+    def _end_diaphragm_urs(node):
+        """Collect Osdag URs from the nested end-diaphragm design results."""
+        if not isinstance(node, dict):
+            return []
+        from osdagbridge.core.bridge_types.plate_girder.results_data import _extract_osdag_summary
+        summary = _extract_osdag_summary(node)
+        ur = _numeric_ur(summary.get("efficiency"))
+        if ur is not None:
+            return [ur]
+        return [
+            value
+            for child in node.values()
+            for value in _end_diaphragm_urs(child)
+        ]
+
+    _ed_chart_values = _end_diaphragm_urs(
+        bridge.output_dict.get("end_diaphragm_design_results", {}) or {}
+    )
+    _ed_chart = max(_ed_chart_values) if _ed_chart_values else None
 
     try:
         from io import BytesIO
@@ -1105,18 +1129,23 @@ Fatigue Shear Resistance, $Q_r$ & IRC 22 Table 8 ($\phi d$, $N_{sc}$) & """
         _x = list(range(len(_chart_labels)))
         _valid = [(i, value) for i, value in enumerate(_chart_values) if value is not None]
         if _valid:
-            _ax.bar([i for i, _ in _valid], [v for _, v in _valid], color="#91B014", width=0.62)
+            _ax.bar(
+                [i for i, _ in _valid], [v for _, v in _valid],
+                color=["#91B014" if v <= 1.0 else "#D9534F" for _, v in _valid],
+                width=0.62,
+            )
             for _i, _value in _valid:
                 _ax.text(_i, _value, f"{_value:.2f}", ha="center", va="bottom", fontsize=9)
         for _i, _value in enumerate(_chart_values):
             if _value is None:
-                _ax.text(_i, 0.03, "N/A", ha="center", va="bottom", fontsize=9)
-        _ax.axhline(1.0, color="red", linestyle="--", linewidth=1.3)
+                _ax.text(_i, 0.03, "No design data", ha="center", va="bottom", fontsize=8, rotation=90)
+        _ax.axhline(1.0, color="red", linestyle="--", linewidth=1.3, label="UR = 1.0 limit")
         _max_ur = max((v for v in _chart_values if v is not None), default=1.0)
         _ax.set_ylim(0, max(1.15, _max_ur * 1.15))
         _ax.set_xticks(_x, _chart_labels)
         _ax.set_ylabel("Utilization Ratio (UR = Demand / Capacity)")
         _ax.grid(axis="y", alpha=0.22)
+        _ax.legend(loc="upper right", frameon=False)
         _fig.tight_layout()
         _buffer = BytesIO()
         _fig.savefig(_buffer, format="png", bbox_inches="tight", facecolor="white")
