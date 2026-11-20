@@ -1117,39 +1117,15 @@ Fatigue Shear Resistance, $Q_r$ & IRC 22 Table 8 ($\phi d$, $N_{sc}$) & """
     _ed_chart = max(_ed_chart_values) if _ed_chart_values else None
 
     try:
-        from io import BytesIO
-        from matplotlib.figure import Figure
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-
         _chart_values = [_girder_chart, _deck_chart, _cb_chart, _ed_chart]
         _chart_labels = ["Steel Plate\nGirders", "Concrete Deck\nSlab", "Cross Bracing", "End Diaphragms"]
-        _fig = Figure(figsize=(8.4, 4.0), dpi=160, facecolor="white")
-        FigureCanvasAgg(_fig)
-        _ax = _fig.subplots()
-        _x = list(range(len(_chart_labels)))
-        _valid = [(i, value) for i, value in enumerate(_chart_values) if value is not None]
-        if _valid:
-            _ax.bar(
-                [i for i, _ in _valid], [v for _, v in _valid],
-                color=["#91B014" if v <= 1.0 else "#D9534F" for _, v in _valid],
-                width=0.62,
-            )
-            for _i, _value in _valid:
-                _ax.text(_i, _value, f"{_value:.2f}", ha="center", va="bottom", fontsize=9)
-        for _i, _value in enumerate(_chart_values):
-            if _value is None:
-                _ax.text(_i, 0.03, "No design data", ha="center", va="bottom", fontsize=8, rotation=90)
-        _ax.axhline(1.0, color="red", linestyle="--", linewidth=1.3, label="UR = 1.0 limit")
-        _max_ur = max((v for v in _chart_values if v is not None), default=1.0)
-        _ax.set_ylim(0, max(1.15, _max_ur * 1.15))
-        _ax.set_xticks(_x, _chart_labels)
-        _ax.set_ylabel("Utilization Ratio (UR = Demand / Capacity)")
-        _ax.grid(axis="y", alpha=0.22)
-        _ax.legend(loc="upper right", frameon=False)
-        _fig.tight_layout()
-        _buffer = BytesIO()
-        _fig.savefig(_buffer, format="png", bbox_inches="tight", facecolor="white")
-        bridge.payload.figure_data["ur_summary"] = _buffer.getvalue()
+        from .chart_renderer import render_chart_png
+
+        bridge.payload.figure_data["ur_summary"] = render_chart_png({
+            "kind": "ur",
+            "values": _chart_values,
+            "labels": _chart_labels,
+        })
         _ur_chart_tex = r"""\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{images/ur_summary.png}
