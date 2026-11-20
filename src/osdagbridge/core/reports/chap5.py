@@ -1098,23 +1098,25 @@ Fatigue Shear Resistance, $Q_r$ & IRC 22 Table 8 ($\phi d$, $N_{sc}$) & """
         from matplotlib.backends.backend_agg import FigureCanvasAgg
 
         _chart_values = [_girder_chart, _deck_chart, _cb_chart, _ed_chart]
-        _chart_labels = ["Steel plate girders", "Concrete deck slab", "Cross bracing", "End diaphragms"]
-        _fig = Figure(figsize=(9.2, 3.2), dpi=160, facecolor="white")
+        _chart_labels = ["Steel Plate\nGirders", "Concrete Deck\nSlab", "Cross Bracing", "End Diaphragms"]
+        _fig = Figure(figsize=(8.4, 4.0), dpi=160, facecolor="white")
         FigureCanvasAgg(_fig)
-        _axes = _fig.subplots(1, 4)
-        for _ax, _label, _value in zip(_axes, _chart_labels, _chart_values):
-            _ax.axhline(1.0, color="red", linestyle="--", linewidth=1.2)
+        _ax = _fig.subplots()
+        _x = list(range(len(_chart_labels)))
+        _valid = [(i, value) for i, value in enumerate(_chart_values) if value is not None]
+        if _valid:
+            _ax.bar([i for i, _ in _valid], [v for _, v in _valid], color="#91B014", width=0.62)
+            for _i, _value in _valid:
+                _ax.text(_i, _value, f"{_value:.2f}", ha="center", va="bottom", fontsize=9)
+        for _i, _value in enumerate(_chart_values):
             if _value is None:
-                _ax.text(0.5, 0.5, "N/A", ha="center", va="center", transform=_ax.transAxes)
-                _ax.set_ylim(0, 1.2)
-            else:
-                _ax.bar([_label], [_value], color="#91B014", width=0.58)
-                _ax.set_ylim(0, max(1.2, _value * 1.15))
-                _ax.text(0, _value, f"{_value:.2f}", ha="center", va="bottom", fontsize=8)
-            _ax.set_title(_label, fontsize=8, wrap=True)
-            _ax.set_ylabel("UR")
-            _ax.tick_params(axis="x", labelbottom=False)
-            _ax.grid(axis="y", alpha=0.2)
+                _ax.text(_i, 0.03, "N/A", ha="center", va="bottom", fontsize=9)
+        _ax.axhline(1.0, color="red", linestyle="--", linewidth=1.3)
+        _max_ur = max((v for v in _chart_values if v is not None), default=1.0)
+        _ax.set_ylim(0, max(1.15, _max_ur * 1.15))
+        _ax.set_xticks(_x, _chart_labels)
+        _ax.set_ylabel("Utilization Ratio (UR = Demand / Capacity)")
+        _ax.grid(axis="y", alpha=0.22)
         _fig.tight_layout()
         _buffer = BytesIO()
         _fig.savefig(_buffer, format="png", bbox_inches="tight", facecolor="white")
