@@ -1,13 +1,12 @@
-def ch7_quantities(input_dict):
-    return r"""
+def ch7_quantities(input_dict, figure_data=None):
+    table = r"""
 \chapter{Material Take-off \& Quantity Summary}
 \label{ch:material-takeoff}
-
-\noindent\textbf{Table 7.1  Bill of Materials (Steel, Concrete, and Reinforcement Quantities)}
 
 \begingroup
 \setlength{\tabcolsep}{3.5pt}
 \begin{longtable}{|C{1.0cm}|L{3.8cm}|C{2.6cm}|C{1.8cm}|C{1.8cm}|C{1.8cm}|C{1.8cm}|}
+\caption{\textbf{Bill of Materials (Steel, Concrete, and Reinforcement Quantities)}}\\
 \hline
 \textbf{S.N.} & \textbf{Item Description} & \textbf{Volume} & \textbf{Quantity} & \textbf{Total Volume} & \textbf{Weight (MT)} & \textbf{Total Weight (MT)} \\
 \hline
@@ -29,5 +28,58 @@ def ch7_quantities(input_dict):
 \hline
 \end{longtable}
 """
+
+    figure_data = figure_data if figure_data is not None else {}
+
+    def _number(key):
+        try:
+            value = float(input_dict.get(key))
+            return value if value >= 0 else None
+        except (TypeError, ValueError):
+            return None
+
+    steel_items = (
+        ("Girders", _number("steel_girders_wt_total")),
+        ("Cross Bracing", _number("steel_bracing_wt_total")),
+        ("End Diaphragms", _number("end_diaphragm_wt_total")),
+    )
+    concrete_value = _number("concrete_deck_vol_total")
+    rebar_value = _number("rebar_deck_wt_total")
+
+    from .chart_renderer import render_chart_png
+
+    chart_tex = ""
+    if any(value is not None for _, value in steel_items):
+        plotted = [(label, value) for label, value in steel_items if value is not None]
+        figure_data["material_steel_tonnage"] = render_chart_png({
+            "kind": "steel",
+            "labels": [item[0] for item in plotted],
+            "values": [item[1] for item in plotted],
+        })
+        chart_tex += r"""
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{images/material_steel_tonnage.png}
+\caption{Structural steel tonnage by primary element.}
+\label{fig:material-steel-tonnage}
+\end{figure}
+"""
+
+    if concrete_value is not None or rebar_value is not None:
+        figure_data["material_concrete_rebar"] = render_chart_png({
+            "kind": "concrete_rebar",
+            "concrete": concrete_value,
+            "rebar": rebar_value,
+        })
+        chart_tex += r"""
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\textwidth]{images/material_concrete_rebar.png}
+\caption{Concrete deck volume and reinforcement steel weight. Reinforcement is based on provided deck design areas and excludes lap and wastage allowances.}
+\label{fig:material-concrete-reinforcement}
+\end{figure}
+"""
+
+    return table + chart_tex
 
 
