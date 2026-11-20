@@ -156,7 +156,7 @@ def preamble(project_name, job_number, report_date, report_version='Rev 0'):
 \documentclass[12pt,a4paper]{report}
 
 % Packages
-\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[a4paper, margin=1in, includeheadfoot]{geometry}
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -178,7 +178,8 @@ def preamble(project_name, job_number, report_date, report_version='Rev 0'):
     format=plain
 }
 \usepackage{subcaption}
-\usepackage{multirow}
+% Enable multirow's longtable fix so \* page-break rules survive following \cline rows.
+\usepackage[longtable]{multirow}
 \usepackage{colortbl}
 \usepackage{longtable}
 \setlength{\LTleft}{\fill}
@@ -938,6 +939,16 @@ def generate_report(payload, request):
 
             doc_parts.append(references())
             doc_parts.append(r"\end{document}")
+
+            # Chapter builders may add generated charts after the initial figure
+            # bytes were copied; write those late images into the same temp area.
+            for attr, img_bytes in list(payload.figure_data.items()):
+                if img_bytes:
+                    image_path = os.path.join(tmp_images, attr + '.png')
+                    with open(image_path, 'wb') as image_file:
+                        image_file.write(img_bytes)
+                    fig_paths[attr] = image_path.replace('\\', '/')
+            payload.figure_data.clear()
 
             full_tex = "\n".join(doc_parts)
             full_tex = repeat_longtable_headers(full_tex)
