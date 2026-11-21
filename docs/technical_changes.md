@@ -1,4 +1,3 @@
-# OsdagBridge report generator: technical changes
 
 ## Changes
 
@@ -14,7 +13,7 @@
 
 6. **Central style module.** `styles.py` is the source for `DOCUMENT` page settings, `COLORS`, `TYPOGRAPHY`, `SPACING`, `TABLE`, `FIGURE`, `CHART`, `HEADER`, `TABLE_LAYOUTS`, and shared LaTeX preamble/TOC builders. Chapter generators consume these values through imports and macros. **Files:** `styles.py`, `report_generator.py`, `report_utils.py`, `executive_summary.py`, `chap1.py`–`chap8.py`, `chart_renderer.py`.
 
-## Files changed under the report generator
+## Files changes
 
 `src/osdagbridge/core/reports/chap1.py`–`chap8.py`, `chart_renderer.py`, `executive_summary.py`, `report_generator.py`, `report_utils.py`, and `styles.py`.
 
