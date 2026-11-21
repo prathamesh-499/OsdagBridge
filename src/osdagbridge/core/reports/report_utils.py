@@ -1,4 +1,5 @@
 import re
+from osdagbridge.core.reports.styles import FIGURE, SPACING, TYPOGRAPHY
 
 from osdagbridge.core.utils.common import (
     KEY_MP_GD_MEMBER_ID,
@@ -6,6 +7,8 @@ from osdagbridge.core.utils.common import (
     KEY_MP_GIRDER_DEPTH,
     KEY_TS_NO_OF_GIRDERS
 )
+
+_ROW_END = re.compile(r"(?:\\\\(?:\[[^]]+\])?|\\Report(?:Wide)?TableRowBreak)")
 
 
 def repeat_longtable_headers(document_tex):
@@ -20,47 +23,71 @@ def repeat_longtable_headers(document_tex):
 
     def _add_head(match):
         table = match.group(0)
+        start_space = r"\ReportLongTableStartSpace" + "\n"
         if r"\endfirsthead" in table or r"\endhead" in table:
-            return table
+            return start_space + table
 
         lines = table.splitlines(keepends=True)
         caption_index = next(
             (i for i, line in enumerate(lines) if r"\caption" in line), None
         )
         if caption_index is None:
-            return table
+            return start_space + table
+        if not re.search(r"\\\\(?:\[[^]]+\])?\s*$", lines[caption_index].rstrip()):
+            lines[caption_index] = lines[caption_index].rstrip("\n") + r"\\" + "\n"
 
-        # Most report tables use a single bold header row. Search only before
-        # the first body row, and require the row terminator to avoid matching
-        # bold text in a caption or an explanatory line.
+        # Find every consecutive bold header row. Some report tables have a
+        # two-line heading (for example, a grouped braking-load header); copying
+        # only the first row produces a malformed continuation header.
         header_index = next(
             (
                 i for i in range(caption_index + 1, len(lines))
                 if r"\textbf" in lines[i]
-                and re.search(r"\\\\(?:\[[^]]+\])?\s*$", lines[i])
+                and _ROW_END.search(lines[i])
             ),
             None,
         )
         if header_index is None:
-            return table
+            return start_space + "".join(lines)
 
-        separator_index = next(
-            (i for i in range(header_index + 1, len(lines)) if r"\hline" in lines[i]),
-            None,
-        )
-        if separator_index is None:
-            return table
+        header_end = header_index
+        last_header_row = header_index
+        for i in range(header_index + 1, len(lines)):
+            line = lines[i]
+            if r"\textbf" in line and _ROW_END.search(line):
+                last_header_row = i
+                header_end = i
+            elif last_header_row > header_index and (
+                r"\hline" in line or r"\cline" in line
+            ):
+                header_end = i
+            elif not line.strip() or r"\cline" in line:
+                continue
+            elif _ROW_END.search(line):
+                # The first non-bold table row is the body. Stop before it.
+                break
 
-        header_row = lines[header_index]
+        if last_header_row == header_index:
+            # A single-row header is valid; the loop can still extend its
+            # header block over the closing rule below.
+            pass
+        if header_end < header_index:
+            return start_space + table
+
+        header_block = "".join(lines[header_index:header_end + 1])
+        # Include the rule immediately below the last header row so the
+        # continued table has the same separation from its body.
+        if header_end + 1 < len(lines) and r"\hline" in lines[header_end + 1]:
+            header_end += 1
+            header_block = "".join(lines[header_index:header_end + 1])
         repeated_head = (
             r"\endfirsthead" + "\n"
             + r"\hline" + "\n"
-            + header_row
-            + r"\hline" + "\n"
+            + header_block
             + r"\endhead" + "\n"
         )
-        lines.insert(separator_index + 1, repeated_head)
-        return "".join(lines)
+        lines.insert(header_end + 1, repeated_head)
+        return start_space + "".join(lines)
 
     return table_pattern.sub(_add_head, document_tex)
 
@@ -132,7 +159,7 @@ def get_girder_entries(input_dict):
     return entries
 
 
-def _fig_or_placeholder(path, caption, width=r'0.9\textwidth'):
+def _fig_or_placeholder(path, caption, width=FIGURE["summary_width"]):
     """Embed figure if path is provided (file already copied to assets), else show placeholder box.
     path is the relative path as pdflatex will see it (e.g. 'assets/plan.png').
     """
@@ -145,13 +172,13 @@ def _fig_or_placeholder(path, caption, width=r'0.9\textwidth'):
                 r'\end{figure}')
     return (r'\begin{figure}[H]' + '\n'
             r'\centering' + '\n'
-            r'\fbox{\parbox{0.97\textwidth}{' + '\n'
+            r'\fbox{\parbox{' + FIGURE["placeholder_width"] + '}{' + '\n'
             r'\textit{[ PLACEHOLDER: ' + caption + r' ]}' + '\n'
             r'}}' + '\n'
             r'\caption*{' + caption + '}\n'
             r'\end{figure}')
 
-def _fig_embed(path, caption, width=r'\textwidth', height=None):
+def _fig_embed(path, caption, width=FIGURE["full_width"], height=None):
     """Embed a real figure when path is provided (already copied); otherwise use an fbox placeholder."""
     if path:
         p = path.replace('\\', '/')
@@ -159,15 +186,15 @@ def _fig_embed(path, caption, width=r'\textwidth', height=None):
         if height:
             opts += ',height=' + height + ',keepaspectratio'
         return (r'\begin{figure}[H]' + '\n'
-                r'\vspace{-0.5em}' + '\n'
+                r'\vspace{' + SPACING["figure_before"] + '}\n'
                 r'\centering' + '\n'
                 r'\includegraphics[' + opts + ']{' + p + '}\n'
-                r'\vspace{0.5em}' + '\n'
-                r'\caption*{\small ' + caption + '}\n'
-                r'\vspace{-0.5em}' + '\n'
+                r'\vspace{' + SPACING["figure_after"] + '}\n'
+                r'\caption*{' + '\\' + TYPOGRAPHY["caption"] + ' ' + caption + '}\n'
+                r'\vspace{' + SPACING["figure_before"] + '}\n'
                 r'\end{figure}')
     # fbox placeholder — matches template exactly
-    return (r'\noindent\fbox{\parbox{0.97\textwidth}{' + '\n'
+    return (r'\noindent\fbox{\parbox{' + FIGURE["placeholder_width"] + '}{' + '\n'
             r'\textit{[ PLACEHOLDER: ' + caption + r' ]}' + '\n'
             r'}}')
 

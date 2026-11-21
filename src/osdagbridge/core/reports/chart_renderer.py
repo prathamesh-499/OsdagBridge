@@ -10,6 +10,10 @@ import os
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from osdagbridge.core.reports.styles import CHART
 
 
 def _render(spec):
@@ -23,39 +27,45 @@ def _render(spec):
     if kind == "ur":
         values = spec["values"]
         labels = spec["labels"]
-        fig = Figure(figsize=(8.4, 4.0), dpi=160, facecolor="white")
+        fig = Figure(figsize=CHART["ur_size"], dpi=CHART["dpi"], facecolor="white")
         ax = fig.subplots()
         valid = [(i, value) for i, value in enumerate(values) if value is not None]
         if valid:
             ax.bar(
                 [i for i, _ in valid], [value for _, value in valid],
-                color=["#91B014" if value <= 1.0 else "#D9534F" for _, value in valid],
-                width=0.62,
+                color=[CHART["accent"] if value <= CHART["threshold"] else CHART["fail"] for _, value in valid],
+                width=CHART["bar_width"],
             )
             for i, value in valid:
                 ax.text(i, value, f"{value:.2f}", ha="center", va="bottom", fontsize=9)
         for i, value in enumerate(values):
             if value is None:
                 ax.text(i, 0.03, "No design data", ha="center", va="bottom", fontsize=8, rotation=90)
-        ax.axhline(1.0, color="red", linestyle="--", linewidth=1.3, label="UR = 1.0 limit")
+        ax.axhline(
+            CHART["threshold"],
+            color=CHART["threshold_color"],
+            linestyle="--",
+            linewidth=1.3,
+            label=f"UR = {CHART['threshold']:.1f} limit",
+        )
         max_ur = max((value for value in values if value is not None), default=1.0)
-        ax.set_ylim(0, max(1.15, max_ur * 1.15))
+        ax.set_ylim(0, max(CHART["threshold"] * 1.15, max_ur * 1.15))
         ax.set_xticks(list(range(len(labels))), labels)
         ax.set_ylabel("Utilization Ratio (UR = Demand / Capacity)")
-        ax.grid(axis="y", alpha=0.22)
+        ax.grid(axis="y", alpha=CHART["grid_alpha"])
         ax.legend(loc="upper right", frameon=False)
     elif kind == "steel":
         labels = spec["labels"]
         values = spec["values"]
-        fig = Figure(figsize=(7.2, 4.0), facecolor="white")
+        fig = Figure(figsize=CHART["material_size"], dpi=CHART["dpi"], facecolor="white")
         ax = fig.subplots()
-        bars = ax.bar(labels, values, color="#91B014")
+        bars = ax.bar(labels, values, color=CHART["accent"])
         ax.set_ylabel("Weight (MT)")
         ax.set_title("Structural Steel Quantities")
-        ax.grid(axis="y", linestyle=":", alpha=0.45)
+        ax.grid(axis="y", linestyle=":", alpha=CHART["material_grid_alpha"])
         ax.bar_label(bars, fmt="%.2f", padding=3)
     elif kind == "concrete_rebar":
-        fig = Figure(figsize=(7.2, 4.0), facecolor="white")
+        fig = Figure(figsize=CHART["material_size"], dpi=CHART["dpi"], facecolor="white")
         axes = fig.subplots(1, 2)
         for ax, title, value, unit in (
             (axes[0], "Concrete Deck", spec.get("concrete"), "Volume (m$^3$)"),
@@ -63,12 +73,12 @@ def _render(spec):
         ):
             ax.set_title(title)
             ax.set_ylabel(unit)
-            ax.grid(axis="y", linestyle=":", alpha=0.45)
+            ax.grid(axis="y", linestyle=":", alpha=CHART["material_grid_alpha"])
             if value is None:
                 ax.text(0.5, 0.5, "Quantity unavailable", ha="center", va="center", transform=ax.transAxes)
                 ax.set_xticks([])
             else:
-                bars = ax.bar([title], [value], color="#4472C4")
+                bars = ax.bar([title], [value], color=CHART["info"])
                 ax.bar_label(bars, fmt="%.2f", padding=3)
     else:
         raise ValueError(f"Unknown chart type: {kind}")

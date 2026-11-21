@@ -4,8 +4,8 @@ def ch7_quantities(input_dict, figure_data=None):
 \label{ch:material-takeoff}
 
 \begingroup
-\setlength{\tabcolsep}{3.5pt}
-\begin{longtable}{|C{1.0cm}|L{3.8cm}|C{2.6cm}|C{1.8cm}|C{1.8cm}|C{1.8cm}|C{1.8cm}|}
+\ReportCompactTablePadding
+\begin{longtable}{\N}
 \caption{\textbf{Bill of Materials (Steel, Concrete, and Reinforcement Quantities)}}\\
 \hline
 \textbf{S.N.} & \textbf{Item Description} & \textbf{Volume} & \textbf{Quantity} & \textbf{Total Volume} & \textbf{Weight (MT)} & \textbf{Total Weight (MT)} \\
@@ -59,7 +59,7 @@ def ch7_quantities(input_dict, figure_data=None):
         chart_tex += r"""
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.88\textwidth]{images/material_steel_tonnage.png}
+\includegraphics[width=\ReportChartWidth]{images/material_steel_tonnage.png}
 \caption{Structural steel tonnage by primary element.}
 \label{fig:material-steel-tonnage}
 \end{figure}
@@ -74,7 +74,7 @@ def ch7_quantities(input_dict, figure_data=None):
         chart_tex += r"""
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.88\textwidth]{images/material_concrete_rebar.png}
+\includegraphics[width=\ReportChartWidth]{images/material_concrete_rebar.png}
 \caption{Concrete deck volume and reinforcement steel weight. Reinforcement is based on provided deck design areas and excludes lap and wastage allowances.}
 \label{fig:material-concrete-reinforcement}
 \end{figure}
