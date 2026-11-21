@@ -40,7 +40,10 @@ def _render(spec):
                 ax.text(i, value, f"{value:.2f}", ha="center", va="bottom", fontsize=9)
         for i, value in enumerate(values):
             if value is None:
-                ax.text(i, 0.03, "No design data", ha="center", va="bottom", fontsize=8, rotation=90)
+                ax.text(
+                    i, 0.03, "No design\ndata", ha="center", va="bottom",
+                    fontsize=8, linespacing=0.9,
+                )
         ax.axhline(
             CHART["threshold"],
             color=CHART["threshold_color"],

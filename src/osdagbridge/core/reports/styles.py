@@ -18,7 +18,7 @@ TABLE_LAYOUTS = {
     5: '|L{1.4cm}|p{2.2cm}|p{2.2cm}|p{3.0cm}|p{2.4cm}|p{2.2cm}|',
     6: '|L{2.2cm}|L{2.2cm}|L{3.0cm}|L{2.5cm}|C{1.8cm}|C{1.8cm}|',
     7: '|L{5.5cm}|p{9.5cm}|',
-    8: '|L{3.0cm}|C{2.1cm}|C{2.1cm}|C{2.2cm}|C{1.7cm}|C{2.1cm}|',
+    8: '|L{3.0cm}|C{2.1cm}|C{2.1cm}|C{2.2cm}|C{1.7cm}|C{2.8cm}|',
     9: '|L{7.0cm}|C{5.5cm}|C{2.0cm}|',
     10: '|C{4.0cm}|p{11.0cm}|',
     11: "' + col_spec + '",
@@ -51,8 +51,8 @@ TABLE_LAYOUTS = {
 
 def executive_summary_table_spec(column_count):
     count = max(1, int(column_count))
-    label_width = 2.8
-    available_width = 16.1
+    label_width = 3.0
+    available_width = 16.7
     member_width = round(max(1.5, (available_width - label_width) / count), 1)
     return (
         f"|C{{{label_width}cm}}|"
