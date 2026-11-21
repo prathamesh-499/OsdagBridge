@@ -11,18 +11,6 @@ from osdagbridge.core.utils.common import (
     KEY_TS_NO_OF_GIRDERS,
     KEY_TS_DECK_THICKNESS,
     KEY_TS_GIRDER_SPACING,
-    KEY_TD_ED_PROP_L,
-    KEY_TD_ED_PROP_M,
-    KEY_TD_ED_TOP_CHORD_PROP_L,
-    KEY_TD_ED_TOP_CHORD_PROP_M,
-    KEY_TD_ED_BOTTOM_CHORD_PROP_L,
-    KEY_TD_ED_BOTTOM_CHORD_PROP_M,
-    KEY_MP_ED_TYPE,
-    KEY_MP_ED_TOP_CHORD,
-    KEY_MP_ED_BOTTOM_CHORD,
-    KEY_TD_CB_PROP_M,
-    KEY_TD_CB_TOP_CHORD_PROP_M,
-    KEY_TD_CB_BOTTOM_CHORD_PROP_M,
 )
 
 logger = logging.getLogger("osdagbridge.core.boq_generator")
@@ -59,7 +47,6 @@ def calculate_material_quantities(inputs: dict, outputs: dict) -> dict:
         "steel_bracing_vol_total": "N.A.",
         "steel_bracing_wt_single": "N.A.",
         "steel_bracing_wt_total": "N.A.",
-        "end_diaphragm_wt_total": "N.A.",
 
         "bracing_top_vol_formula": r"\placeholder{Area $\times$ Length}",
         "bracing_top_qty": "N.A.",
@@ -134,41 +121,17 @@ def calculate_material_quantities(inputs: dict, outputs: dict) -> dict:
                     quantities["concrete_deck_wt_single"] = f"{(concrete_vol * 2.5):.2f}"
                     quantities["concrete_deck_wt_total"] = f"{(concrete_vol * 2.5):.2f}"
 
-                    # 2. Reinforcement steel from the deck design's provided
-                    # reinforcement areas (mm^2/m), rather than a generic kg/m^3
-                    # allowance. This is a design takeoff and excludes lap/waste.
-                    deck_results = outputs.get("deck_design_results") or {}
-                    reinforcement_areas = [
-                        deck_results.get("rebar_bottom_area"),
-                        deck_results.get("rebar_top_area"),
-                        deck_results.get("rebar_long_area"),
-                    ]
-                    try:
-                        reinforcement_areas = [float(area) for area in reinforcement_areas]
-                        if not all(area > 0 for area in reinforcement_areas):
-                            raise ValueError("Missing deck reinforcement area")
-                        deck_width = float(overall_width)
-                        n_girders = int(n_girders_val)
-                        girder_spacing = float(inputs.get(KEY_TS_GIRDER_SPACING))
-                        interior_width = min(deck_width, max(0.0, (n_girders - 1) * girder_spacing))
-                        rebar_volume = (
-                            (reinforcement_areas[0] + reinforcement_areas[1]) * span * interior_width
-                            + reinforcement_areas[2] * span * deck_width
-                        ) / 1e6
-                        overhang_area = deck_results.get("rebar_overhang_area")
-                        if overhang_area is not None and float(overhang_area) > 0:
-                            overhang_width = max(0.0, deck_width - interior_width)
-                            rebar_volume += float(overhang_area) * span * overhang_width / 1e6
-                        rebar_wt_mt = rebar_volume * 7.85
-                        quantities["rebar_deck_vol_formula"] = (
-                            f"$A_s\\times L\\times B = {rebar_volume:.5f}\\text{{ m}}^3$"
-                        )
-                        quantities["rebar_deck_qty"] = "1"
-                        quantities["rebar_deck_vol_total"] = f"{rebar_volume:.2f}"
-                        quantities["rebar_deck_wt_single"] = f"{rebar_wt_mt:.2f}"
-                        quantities["rebar_deck_wt_total"] = f"{rebar_wt_mt:.2f}"
-                    except (TypeError, ValueError):
-                        pass
+                    # 2. Reinforcement Steel (Cu.m) and Weight (MT)
+                    rebar_wt_kg = concrete_vol * 120.0
+                    rebar_vol = rebar_wt_kg / 7850.0
+                    rebar_area = rebar_vol / span if span > 0 else 0.0
+                    quantities["rebar_deck_vol_formula"] = f"${rebar_area:.6f}\\text{{ m}}^2 \\times {span:.2f}\\text{{ m}} = {rebar_vol:.5f}\\text{{ m}}^3$"
+                    quantities["rebar_deck_qty"] = "1"
+                    quantities["rebar_deck_vol_total"] = f"{rebar_vol:.2f}"
+                    
+                    rebar_wt_mt = rebar_wt_kg / 1000.0
+                    quantities["rebar_deck_wt_single"] = f"{rebar_wt_mt:.2f}"
+                    quantities["rebar_deck_wt_total"] = f"{rebar_wt_mt:.2f}"
             except Exception:
                 pass
 
@@ -358,7 +321,6 @@ def calculate_material_quantities(inputs: dict, outputs: dict) -> dict:
             quantities["bracing_diag_vol_total"] = f"{diag_vol_total:.2f}"
             quantities["bracing_diag_wt_single"] = f"{diag_wt_single:.4f}"
             quantities["bracing_diag_wt_total"] = f"{diag_wt_total:.2f}"
-            quantities["steel_bracing_wt_total"] = f"{top_chord_wt_total + bot_chord_wt_total + diag_wt_total:.2f}"
         else:
             # Keep all bracing volumes, quantities, and weights as default placeholder "N.A."
             for prefix in ("bracing_top", "bracing_bot", "bracing_diag"):
@@ -367,79 +329,6 @@ def calculate_material_quantities(inputs: dict, outputs: dict) -> dict:
                 quantities[f"{prefix}_vol_total"] = "N.A."
                 quantities[f"{prefix}_wt_single"] = "N.A."
                 quantities[f"{prefix}_wt_total"] = "N.A."
-
-        # Prefer the selected section masses for the chart's cross-bracing
-        # aggregate. Member lengths and panel count come from stored geometry.
-        cb_geometry = (outputs.get("crossbracing_forces_dict") or {}).get("geometry") or {}
-        cb_diag_length = cb_geometry.get("diagonal_length_m")
-        cb_panel_spacing = cb_geometry.get("cb_spacing_m")
-        try:
-            if cb_diag_length and cb_panel_spacing and spacing > 0:
-                cb_panels = max(1, round(span / float(cb_panel_spacing)) - 1)
-                cb_pairs = n_girders - 1
-                top_enabled = str(outputs.get("member_properties.cross_bracing_details.top_chord", True)).lower() not in {"no", "false", "0"}
-                bottom_enabled = str(outputs.get("member_properties.cross_bracing_details.bottom_chord", True)).lower() not in {"no", "false", "0"}
-                actual_bracing_kg = 0.0
-                actual_bracing_found = True
-                for pair_index in range(1, n_girders):
-                    pair_id = f"G{pair_index}G{pair_index + 1}"
-                    diag_mass = outputs.get(f"{KEY_TD_CB_PROP_M}.{pair_id}")
-                    if diag_mass is not None:
-                        actual_bracing_kg += float(diag_mass) * float(cb_diag_length) * 2 * cb_panels
-                    else:
-                        actual_bracing_found = False
-                    if top_enabled:
-                        top_mass = outputs.get(f"{KEY_TD_CB_TOP_CHORD_PROP_M}.{pair_id}")
-                        if top_mass is None:
-                            actual_bracing_found = False
-                        else:
-                            actual_bracing_kg += float(top_mass) * spacing * cb_panels
-                    if bottom_enabled:
-                        bottom_mass = outputs.get(f"{KEY_TD_CB_BOTTOM_CHORD_PROP_M}.{pair_id}")
-                        if bottom_mass is None:
-                            actual_bracing_found = False
-                        else:
-                            actual_bracing_kg += float(bottom_mass) * spacing * cb_panels
-                if actual_bracing_found:
-                    quantities["steel_bracing_wt_total"] = f"{actual_bracing_kg / 1000.0:.2f}"
-        except (TypeError, ValueError):
-            pass
-
-        # 6. End diaphragm steel (MT). The design stores section mass (kg/m)
-        # and member length (m) once for each adjacent girder pair. The same
-        # selected detail is used at both bridge ends.
-        ed_total_kg = 0.0
-        ed_found = False
-        pair_suffixes = {
-            key[len(KEY_MP_ED_TYPE) + 1:]
-            for key in outputs
-            if key.startswith(KEY_MP_ED_TYPE + ".")
-        }
-        for pair_suffix in pair_suffixes:
-            ed_type = outputs.get(f"{KEY_MP_ED_TYPE}.{pair_suffix}")
-            if not ed_type:
-                continue
-            pair_mass = outputs.get(f"{KEY_TD_ED_PROP_M}.{pair_suffix}")
-            pair_length = outputs.get(f"{KEY_TD_ED_PROP_L}.{pair_suffix}")
-            try:
-                if str(ed_type).strip().lower() == "cross bracing":
-                    # Both supported X and K layouts use two diagonals.
-                    diagonal_count = 2
-                    pair_kg = float(pair_mass) * float(pair_length) * diagonal_count
-                    for enabled_key, mass_key, length_key in (
-                        (KEY_MP_ED_TOP_CHORD, KEY_TD_ED_TOP_CHORD_PROP_M, KEY_TD_ED_TOP_CHORD_PROP_L),
-                        (KEY_MP_ED_BOTTOM_CHORD, KEY_TD_ED_BOTTOM_CHORD_PROP_M, KEY_TD_ED_BOTTOM_CHORD_PROP_L),
-                    ):
-                        if outputs.get(f"{enabled_key}.{pair_suffix}"):
-                            pair_kg += float(outputs[f"{mass_key}.{pair_suffix}"]) * float(outputs[f"{length_key}.{pair_suffix}"])
-                else:
-                    pair_kg = float(pair_mass) * float(pair_length)
-                ed_total_kg += pair_kg * 2  # start and finish bridge ends
-                ed_found = True
-            except (TypeError, ValueError, KeyError):
-                continue
-        if ed_found:
-            quantities["end_diaphragm_wt_total"] = f"{ed_total_kg / 1000.0:.2f}"
 
         # 6. Crash Barrier (Cu.m) and Weight (MT)
         KEY_CB_AREA = "typical_section.crash_barrier.area"

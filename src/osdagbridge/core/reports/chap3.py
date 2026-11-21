@@ -67,7 +67,8 @@ from osdagbridge.core.utils.common import (
 
 from osdagbridge.core.reports.report_utils import _tex, _render_value
 
-def ch3_loads(input_dict):
+def ch3_loads(input_dict, output_dict=None):
+    output_dict = output_dict if output_dict is not None else {}
     def _is_selected(key):
         value = input_dict.get(key)
         return value is True or str(value).strip().lower() in ("yes", "true", "1", "on")
@@ -132,6 +133,35 @@ def ch3_loads(input_dict):
 
     # Report one row per UI-selected vehicle. Impact factors use the same IRC 6
     # methods already used above; unsupported classes remain explicitly N/A.
+    vehicle_total_keys = {
+        "class_a": "loading.live_load.vehicle_total_load.class_a",
+        "70r_wheeled": "loading.live_load.vehicle_total_load.70r_wheeled",
+        "70r_tracked": "loading.live_load.vehicle_total_load.70r_tracked",
+        "fatigue": "loading.live_load.vehicle_total_load.fatigue",
+        "sv": "loading.live_load.vehicle_total_load.class_sv",
+    }
+
+    def _vehicle_total_load(kind):
+        key = vehicle_total_keys.get(kind)
+        value = output_dict.get(key) if key else None
+        if value in (None, ""):
+            value = input_dict.get(key) if key else None
+        try:
+            return f"{float(value):.2f}" if value not in (None, "", "N/A") else "N/A"
+        except (TypeError, ValueError):
+            return "N/A"
+
+    vehicle_kinds = {
+        "Class A": "class_a",
+        "Class 70R (Wheeled)": "70r_wheeled",
+        "Class 70R (Tracked)": "70r_tracked",
+        "Class AA (Wheeled)": "70r_wheeled",
+        "Class AA (Tracked)": "70r_tracked",
+        "Class SV": "sv",
+        "Class 70R (Bogie)": "70r_wheeled",
+        "Class Fatigue": "fatigue",
+    }
+
     vehicle_rows = []
     for vehicle in vehicles:
         impact = "N/A"
@@ -147,7 +177,7 @@ def ch3_loads(input_dict):
                 pass
         considered = "Yes" if _is_selected(braking_keys.get(vehicle, "")) else "No"
         vehicle_rows.append(
-            _tex(vehicle) + r" & N/A & " + impact + r" & " + considered
+            _tex(vehicle) + r" & " + _vehicle_total_load(vehicle_kinds.get(vehicle, "")) + r" & " + impact + r" & " + considered
             + r" & N/A & " + _tex(eccentricity or "N/A") + r" \ReportTableRowBreak" + "\n\\hline"
         )
     if not vehicle_rows:

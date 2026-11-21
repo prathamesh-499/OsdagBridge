@@ -64,6 +64,9 @@ def _render(spec):
         ax.set_ylabel("Weight (MT)")
         ax.set_title("Structural Steel Quantities")
         ax.set_ylim(top=max(values, default=0) * (1 + CHART["label_headroom"]) or 1)
+        missing_labels = spec.get("missing_labels", [])
+        if missing_labels:
+            ax.set_xlabel("No quantity data for: " + ", ".join(missing_labels), fontsize=8)
         ax.grid(axis="y", linestyle=":", alpha=CHART["material_grid_alpha"])
         ax.bar_label(bars, fmt="%.2f", padding=4)
     elif kind == "concrete_rebar":

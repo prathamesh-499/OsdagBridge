@@ -38,9 +38,15 @@ def ch7_quantities(input_dict, figure_data=None):
         except (TypeError, ValueError):
             return None
 
+    bracing_weights = (
+        _number("bracing_top_wt_total"),
+        _number("bracing_bot_wt_total"),
+        _number("bracing_diag_wt_total"),
+    )
+    bracing_total = sum(bracing_weights) if all(value is not None for value in bracing_weights) else None
     steel_items = (
         ("Girders", _number("steel_girders_wt_total")),
-        ("Cross Bracing", _number("steel_bracing_wt_total")),
+        ("Cross Bracing", bracing_total),
         ("End Diaphragms", _number("end_diaphragm_wt_total")),
     )
     concrete_value = _number("concrete_deck_vol_total")
@@ -51,10 +57,12 @@ def ch7_quantities(input_dict, figure_data=None):
     chart_tex = ""
     if any(value is not None for _, value in steel_items):
         plotted = [(label, value) for label, value in steel_items if value is not None]
+        missing_items = [label for label, value in steel_items if value is None]
         figure_data["material_steel_tonnage"] = render_chart_png({
             "kind": "steel",
             "labels": [item[0] for item in plotted],
             "values": [item[1] for item in plotted],
+            "missing_labels": missing_items,
         })
         chart_tex += r"""
 \begin{figure}[htbp]
@@ -75,7 +83,7 @@ def ch7_quantities(input_dict, figure_data=None):
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\ReportChartWidth]{images/material_concrete_rebar.png}
-\caption{Concrete deck volume and reinforcement steel weight. Reinforcement is based on provided deck design areas and excludes lap and wastage allowances.}
+\caption{Concrete deck volume and reinforcement steel weight in the material take-off.}
 \label{fig:material-concrete-reinforcement}
 \end{figure}
 """
