@@ -160,6 +160,7 @@ def executive_summary(input_dict, output_dict, fig_paths) -> str:
     table1 = (r'\noindent\textbf{Table 1 -- Final Bridge Geometry (after optimization)}' + '\n\n'
               r'\ReportSmallSpace' + '\n'
               r'\noindent' + '\n'
+              r'\begingroup\ReportCompactTablePadding' + '\n'
               r'\begin{tabular}{' + col_spec + '}\n'
               r'\hline' + '\n'
               + header_row +
@@ -172,7 +173,7 @@ def executive_summary(input_dict, output_dict, fig_paths) -> str:
               r'\hline' + '\n'
               + urs + '\n'
               r'\hline' + '\n'
-              r'\end{tabular}')
+              r'\end{tabular}\endgroup')
 
     return r"""
 \newpage

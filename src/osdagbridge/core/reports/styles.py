@@ -8,7 +8,7 @@ TABLE = MappingProxyType({"compact_padding": "3.5pt", "dense_padding": "4pt", "a
 SPACING = MappingProxyType({"section": "1em", "medium": "0.8em", "small": "0.4em", "tight": "0.3em", "small_medium": "0.6em", "paragraph": "0.4cm", "half_block": "0.5cm", "block": "0.8cm", "major": "2.2em", "caption_gap": "4pt", "caption_tight": "-0.5em", "caption_after": "0.5em", "figure_before": "-0.5em", "figure_after": "0.5em", "row": "6pt", "row_wide": "8pt", "row_tight": "3pt", "title": "1.5cm", "title_gap": "1.5cm", "logo_gap": "1cm", "title_small": "0.3cm", "cover_title": "2cm", "toc_row": "2pt", "chapter_number_gap": "1em", "executive_chapter_before": "-30pt", "executive_chapter_after": "10pt"})
 FIGURE = MappingProxyType({"placement": "H", "float_placement": "htbp", "placeholder_width": r"0.97\textwidth", "summary_width": r"0.9\textwidth", "full_width": r"\textwidth", "chapter_width": r"0.85\textwidth", "chart_width": r"0.88\textwidth", "analysis_width": r"0.75\textwidth", "cell_width": r"0.31\textwidth", "cell_placeholder_width": r"0.95\linewidth", "org_logo_height": "2.2cm", "logo_panel": r"0.6\textwidth", "org_panel": r"0.35\textwidth"})
 TYPOGRAPHY = MappingProxyType({"caption": "small", "footnote": "footnotesize", "cover_brand": "Huge", "cover_subtitle": "large", "cover_title": "Large", "chapter_title": "Large", "executive_title": "Large", "toc_title": "Large"})
-CHART = MappingProxyType({"ur_size": (8.4, 4.0), "material_size": (7.2, 4.0), "dpi": 160, "accent": "#91B014", "info": "#4472C4", "fail": "#D9534F", "threshold": 1.0, "threshold_color": "red", "grid_alpha": 0.22, "material_grid_alpha": 0.45, "bar_width": 0.62})
+CHART = MappingProxyType({"ur_size": (8.4, 4.0), "material_size": (7.2, 4.0), "dpi": 160, "accent": "#91B014", "info": "#4472C4", "fail": "#D9534F", "threshold": 1.0, "threshold_color": "red", "grid_alpha": 0.22, "material_grid_alpha": 0.45, "bar_width": 0.62, "label_headroom": 0.25})
 HEADER = MappingProxyType({"organization": "Osdag $|$ FOSSEE $|$ Indian Institute of Technology Bombay", "page": r"Page \thepage\ of \pageref{LastPage}", "default_note": r"\footnotesize\textit{* Software default value}"})
 TABLE_LAYOUTS = {
     1: '|L{5.5cm}|L{8.5cm}|',
@@ -51,8 +51,8 @@ TABLE_LAYOUTS = {
 
 def executive_summary_table_spec(column_count):
     count = max(1, int(column_count))
-    label_width = 3.0
-    available_width = 16.7
+    label_width = 2.8
+    available_width = 15.4
     member_width = round(max(1.5, (available_width - label_width) / count), 1)
     return (
         f"|C{{{label_width}cm}}|"

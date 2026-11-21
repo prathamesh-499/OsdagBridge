@@ -38,12 +38,10 @@ def _render(spec):
             )
             for i, value in valid:
                 ax.text(i, value, f"{value:.2f}", ha="center", va="bottom", fontsize=9)
-        for i, value in enumerate(values):
-            if value is None:
-                ax.text(
-                    i, 0.03, "No design\ndata", ha="center", va="bottom",
-                    fontsize=8, linespacing=0.9,
-                )
+        display_labels = [
+            f"{label}\nNo design data" if value is None else label
+            for label, value in zip(labels, values)
+        ]
         ax.axhline(
             CHART["threshold"],
             color=CHART["threshold_color"],
@@ -53,7 +51,7 @@ def _render(spec):
         )
         max_ur = max((value for value in values if value is not None), default=1.0)
         ax.set_ylim(0, max(CHART["threshold"] * 1.15, max_ur * 1.15))
-        ax.set_xticks(list(range(len(labels))), labels)
+        ax.set_xticks(list(range(len(labels))), display_labels)
         ax.set_ylabel("Utilization Ratio (UR = Demand / Capacity)")
         ax.grid(axis="y", alpha=CHART["grid_alpha"])
         ax.legend(loc="upper right", frameon=False)
@@ -65,8 +63,9 @@ def _render(spec):
         bars = ax.bar(labels, values, color=CHART["accent"])
         ax.set_ylabel("Weight (MT)")
         ax.set_title("Structural Steel Quantities")
+        ax.set_ylim(top=max(values, default=0) * (1 + CHART["label_headroom"]) or 1)
         ax.grid(axis="y", linestyle=":", alpha=CHART["material_grid_alpha"])
-        ax.bar_label(bars, fmt="%.2f", padding=3)
+        ax.bar_label(bars, fmt="%.2f", padding=4)
     elif kind == "concrete_rebar":
         fig = Figure(figsize=CHART["material_size"], dpi=CHART["dpi"], facecolor="white")
         axes = fig.subplots(1, 2)
@@ -82,7 +81,8 @@ def _render(spec):
                 ax.set_xticks([])
             else:
                 bars = ax.bar([title], [value], color=CHART["info"])
-                ax.bar_label(bars, fmt="%.2f", padding=3)
+                ax.set_ylim(top=value * (1 + CHART["label_headroom"]) or 1)
+                ax.bar_label(bars, fmt="%.2f", padding=4)
     else:
         raise ValueError(f"Unknown chart type: {kind}")
 
