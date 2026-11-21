@@ -8,7 +8,7 @@ Multi-page tables repeat their complete header block. The live-load chapter repo
 
 Section 5.5 and Chapter 7 charts are generated programmatically through `chart_renderer.py` and embedded as figures. UR charts use a dashed threshold at 1.0; material charts show steel tonnage and concrete volume with reinforcement weight.
 
-Page geometry and footer spacing were adjusted, and Table 3.3 starts on a fresh page to prevent a continuation header from appearing before its caption. Table row spacing, cell padding, caption gaps, and figure sizing are configurable from the shared style definitions.
+Page geometry and footer spacing were adjusted, and Table 3.3 starts on a fresh page to prevent a continuation header from appearing before its caption. Longtable start spacing is inserted before each environment so page breaks keep the caption with its first header. Table row spacing, cell padding, caption gaps, and figure sizing are configurable from the shared style definitions.
 
 ## Main files
 
@@ -23,4 +23,4 @@ Page geometry and footer spacing were adjusted, and Table 3.3 starts on a fresh 
 
 `Report_Before.pdf` is the saved Run B report. `Report_After.pdf` was rebuilt from its saved LaTeX source and embedded images using the new report preamble and the table continuation/page-break fixes. The saved design data includes both-side footpath selection and its reported pressure. A live desktop design session was not available, so this validates rendering against the saved report data rather than a fresh design calculation.
 
-The after PDF was compiled with pdfLaTeX and visually reviewed at the live-load, G4 check, and software-default footer pages. It contains 74 physical pages; the numbered report pages end at 73 because the title page is unnumbered. The build retains a pre-existing multiply-defined `sec:assumptions` label warning.
+The after PDF was compiled with pdfLaTeX and visually reviewed at the live-load, G4 check, and software-default footer pages. It contains 73 physical pages; the numbered report pages end at 72 because the title page is unnumbered. The build retains a pre-existing multiply-defined `sec:assumptions` label warning.
