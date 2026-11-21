@@ -1,26 +1,35 @@
-# OsdagBridge report refactor
+# OsdagBridge report generator: technical changes
 
-## Summary
+## Key changes
 
-The report generator now uses a shared style module to define page geometry, typography, colors, table spacing, figure widths, chart colors, and header/footer styling. Chapter generators emit shared LaTeX macros for repeated formatting and use named table-layout aliases that are expanded at the end of report assembly.
+- **Long tables:** Chapter output is assembled as LaTeX and normalized after assembly. Longtables receive continuation heads containing the full header block; a shared start-space macro is placed before each `longtable` so a page break does not separate its caption from its first header. Table 3.3 also starts on a fresh page to avoid a stray continuation header above its caption.
+- **Page and footer layout:** Shared geometry, header/footer dimensions, footer note placement, longtable start spacing, cell padding, row height, caption spacing, and figure widths are defined centrally. Table and section spacing now use shared LaTeX macros.
+- **Chapter 3 loads:** Vehicle live loads, associated vehicle loads, and footpath live loads are separate tables with units where applicable. Vehicle rows follow UI selections, including custom-vehicle inclusion. Missing braking or centrifugal data remains explicitly unavailable; absent footpaths get a clear “No footpath provided” row.
+- **Charts:** `chart_renderer.py` creates UR charts for girders, deck slab, cross bracing, and end diaphragms with the red dashed UR=1.0 reference. It also creates Chapter 7 steel tonnage and concrete/reinforcement charts. Images are rendered in an isolated Matplotlib process and embedded as LaTeX figures. Missing UR data appears on a second line under its category, and chart value labels have headroom above bars.
+- **Summary tables:** The executive geometry summary uses dynamic column widths and compact table padding to fit within the text area. The Chapter 3 eccentricity column was widened to prevent its heading from clipping.
 
-Multi-page tables repeat their complete header block. The live-load chapter reports vehicles and related loads in separate tables, includes the selected custom vehicles, and reports an explicit no-footpath row when no footpath is selected. The report source does not invent braking, centrifugal, or footpath values when they are unavailable.
+## Style module structure
 
-Section 5.5 and Chapter 7 charts are generated programmatically through `chart_renderer.py` and embedded as figures. UR charts use a dashed threshold at 1.0; material charts show steel tonnage and concrete volume with reinforcement weight.
+`src/osdagbridge/core/reports/styles.py` is the formatting source of truth:
 
-Page geometry and footer spacing were adjusted, and Table 3.3 starts on a fresh page to prevent a continuation header from appearing before its caption. Longtable start spacing is inserted before each environment so page breaks keep the caption with its first header. Table row spacing, cell padding, caption gaps, and figure sizing are configurable from the shared style definitions.
+- `DOCUMENT`: paper size, margins, page spacing, footer geometry, and longtable start-space threshold.
+- `COLORS`, `TYPOGRAPHY`, `SPACING`, `TABLE`, `FIGURE`, `CHART`, and `HEADER`: palettes and report-wide visual settings.
+- `TABLE_LAYOUTS`: named column specifications used by chapter builders and expanded after report assembly.
+- `build_document_preamble()` and `build_toc_section()`: shared LaTeX setup and table-of-contents styling.
 
-## Main files
+Chapter generators use these settings through Python imports or shared LaTeX macros, rather than repeating layout constants in chapter bodies.
 
-- `src/osdagbridge/core/reports/styles.py` defines style constants, LaTeX style macros, table layouts, document preamble, TOC styling, and table-layout expansion.
-- `src/osdagbridge/core/reports/report_generator.py` uses the shared preamble and TOC builders and expands style aliases after chapter assembly.
-- `src/osdagbridge/core/reports/report_utils.py` adds continuation heads for assembled longtables and uses shared figure dimensions and typography.
-- `src/osdagbridge/core/reports/chap1.py` through `chap8.py` and `executive_summary.py` use shared spacing, table, and figure macros.
-- `src/osdagbridge/core/reports/chart_renderer.py` centralizes chart dimensions, colors, and UR threshold styling.
-- `src/osdagbridge/core/reports/chap3.py` builds separate live vehicle, associated vehicle load, and footpath tables from existing input and analysis values.
+## Files changed
 
-## PDF review
+- `src/osdagbridge/core/reports/styles.py`
+- `src/osdagbridge/core/reports/report_generator.py`
+- `src/osdagbridge/core/reports/report_utils.py`
+- `src/osdagbridge/core/reports/executive_summary.py`
+- `src/osdagbridge/core/reports/chap1.py`, `chap2.py`, `chap3.py`, `chap4.py`, `chap5.py`, `chap6.py`, `chap7.py`, `chap8.py`
+- `src/osdagbridge/core/reports/chart_renderer.py`
 
-`Report_Before.pdf` is the saved Run B report. `Report_After.pdf` was rebuilt from its saved LaTeX source and embedded images using the new report preamble and the table continuation/page-break fixes. The saved design data includes both-side footpath selection and its reported pressure. A live desktop design session was not available, so this validates rendering against the saved report data rather than a fresh design calculation.
+## Rationale and verification
 
-The after PDF was compiled with pdfLaTeX and visually reviewed at the live-load, G4 check, and software-default footer pages. It contains 73 physical pages; the numbered report pages end at 72 because the title page is unnumbered. The build retains a pre-existing multiply-defined `sec:assumptions` label warning.
+Centralizing geometry and styling makes global changes consistent; named table layouts reduce chapter-level width drift. Adding the longtable spacing before the environment keeps page-break decisions outside the table head, while repeating every header row preserves multi-level headings.
+
+Report modules compile with the project Python environment, and generated charts were visually reviewed for label collisions. `Report_After.pdf` was previously rebuilt from the saved Run B TeX and its embedded images; it was not regenerated after the latest summary-table and chart spacing changes. A live desktop design session was unavailable, so PDF review used saved report data rather than a fresh design calculation. The earlier full PDF build emitted a pre-existing multiply-defined `sec:assumptions` label warning.
